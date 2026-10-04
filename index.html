@@ -32,7 +32,7 @@
   .feel-note{font-size:13px; color:var(--faint); min-height:20px; margin:8px 2px 18px;}
   /* stage */
   .stage{background:var(--panel2); border:1px solid var(--line); border-radius:14px; padding:26px 18px 20px; margin-bottom:18px; overflow:hidden;}
-  .chips{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; min-height:64px; align-items:center;}
+  .chips{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; min-height:64px; align-items:center; align-content:center;}
   .chip{font-family:var(--mono); font-size:22px; font-weight:700; background:#242b24; border:1px solid var(--line);
         color:var(--ink); border-radius:12px; padding:10px 18px; position:relative;}
   .chip.merged{border-color:var(--accent); background:var(--accent-soft); color:var(--accent);}
@@ -106,7 +106,7 @@
 <div class="wrap">
   <p class="kicker">Explainer tools · feel lab 01</p>
   <h1>The next button.</h1>
-  <p class="lede">A real step-through animator — the byte-pair merges that turn <b style="color:var(--ink)">t·o·k·e·n</b> into token <b style="color:var(--ink)">#10346</b>, exactly as o200k does it. Three button personalities. Tap through each and tell me which one feels right.</p>
+  <p class="lede">A real step-through animator — the byte-pair merges that turn <b style="color:var(--ink)">t·o·k·e·n</b> into token <b style="color:var(--ink)">#10346</b>, exactly as o200k does it. <b style="color:var(--ink)">Glide</b> is the chosen feel; Pop and Crisp are still here to compare. The next button never moves between presses — that's the rule.</p>
 
   <div class="card">
     <div class="feels" role="radiogroup" aria-label="Button feel">
@@ -181,7 +181,37 @@ const progFill = document.getElementById('progFill');
 const feelNote = document.getElementById('feelNote');
 
 let idx = 0, feel = 'pop', soundOn = true;
-try{ feel = localStorage.getItem('feelLabFeel') || 'pop'; soundOn = localStorage.getItem('feelLabSound') !== 'off'; }catch(e){}
+try{ feel = localStorage.getItem('feelLabFeel') || 'glide'; soundOn = localStorage.getItem('feelLabSound') !== 'off'; }catch(e){}
+
+/* ---------- no-move rule: reserve space for the tallest step ----------
+   The next button's resting position must be pixel-identical on every
+   step. Measure every step's chips + caption height in a hidden probe
+   at the real stage width, then pin min-heights so advancing a step
+   can never shift the button. */
+function stabilize(){
+  const stageW = stageEl.clientWidth;
+  if(!stageW) return;
+  const probe = document.createElement('div');
+  const st = getComputedStyle(stageEl);
+  probe.style.cssText = 'position:absolute;top:0;left:0;visibility:hidden;pointer-events:none;padding:' + st.padding + ';width:' + stageW + 'px;';
+  probe.innerHTML = '<div class="chips"></div><p class="caption"></p>';
+  document.body.appendChild(probe);
+  const pc = probe.querySelector('.chips'), pp = probe.querySelector('.caption');
+  let mhChips = 0, mhCap = 0;
+  STEPS.forEach(s => {
+    pc.innerHTML = s.parts.map(p => '<span class="chip">' + p + '</span>').join('');
+    pp.innerHTML = s.note;
+    if(pc.offsetHeight > mhChips) mhChips = pc.offsetHeight;
+    if(pp.offsetHeight > mhCap) mhCap = pp.offsetHeight;
+  });
+  document.body.removeChild(probe);
+  /* ceil + 1px: real rendering can land a fraction above the probe
+     measurement — the pin must always win, never the content. */
+  chipsEl.style.minHeight = (Math.ceil(mhChips) + 1) + 'px';
+  captionEl.style.minHeight = (Math.ceil(mhCap) + 1) + 'px';
+}
+let stabT = null;
+window.addEventListener('resize', () => { clearTimeout(stabT); stabT = setTimeout(stabilize, 150); });
 
 /* ---------- sound: tiny synth, different per feel ---------- */
 let actx = null;
@@ -298,6 +328,7 @@ soundSw.addEventListener('click', () => {
   paintSound();
 });
 paintSound();
+stabilize();
 setFeel(feel);
 </script>
 </body>
